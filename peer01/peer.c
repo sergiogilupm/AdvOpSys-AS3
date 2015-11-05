@@ -23,7 +23,7 @@
 /* Prototypes */
 int sendFile (int sock, char* fileName);
 int obtainFile (int port, char* fileName);
-void showPromptMessage (int option);
+void showPromptMessage ();
 
 /* Global variables */ /* TODO: Check the variables*/
 int connected = 0;
@@ -458,19 +458,21 @@ int addFile (char* newFileName, char *newPort) {
 
 
 
-void showPromptMessage (int option)
+void showPromptMessage ()
 {
 	/* This function triggers when the thread shows info about incoming connections into the terminal
 	 * By doing this the user will have prompt message visible again instead of getting lost because of thread asynchronized messages
 	 */
 
-	switch(option)
+	switch(globalOpt)
 	{
 		case 1 :
-			printf ("\nThis is peer %s. Available options:\n",peerID);
-			printf ("\t[1] - Register a file to the index server\n");
-			printf ("\t[2] - Obtain a file from another peer\n");
-			printf (">>Select option number below\n");
+			printf ("Peer initialized. Available options:\n");
+			printf("\t[1] - Register a file\n");
+			printf("\t[2] - Search for a file\n");
+			printf("\t[3] - [Debug] Show peer DHT contents\n");
+	
+			printf ("\n>>Select option number below:\n");
 		break;
 
 		case 2 :
@@ -487,6 +489,8 @@ void showPromptMessage (int option)
 			printf("\n*Error: Bad prompt code\n"); 
 	}
 }
+
+
 
 /* Obtains a file from a peer (Peer port is being used at this stage)*/
 int obtainFile (int port, char* fileName)
@@ -762,7 +766,7 @@ int obtainFile (int port, char* fileName)
 
 }*/
 
-int selectPeer(char *listOfPeers)
+int selectPeer(char *listOfPeers, int override)
 {
 
 	int peersArray[8];
@@ -789,16 +793,23 @@ int selectPeer(char *listOfPeers)
 
 	printf ("\n**SELECT OPTION NUMBER:");
 		
-
-	fgets(auxOption, sizeof(auxOption), stdin);
-	option = atoi(auxOption);
-	selectedPeer = peersArray[option - 1];
+	if (override)
+	{
+		selectedPeer = peersArray[0];
+	}
+	else
+	{
+		fgets(auxOption, sizeof(auxOption), stdin);
+		option = atoi(auxOption);
+		selectedPeer = peersArray[option - 1];
+	}
+	
 
 	return selectedPeer;
 }
 
 
-int searchCall(char *fileName)
+int searchCall(char *fileName, int override)
 {
 
 	char *request = malloc(1024 * sizeof(char));
@@ -863,7 +874,7 @@ int searchCall(char *fileName)
 		listOfPeers = strtok(NULL, " ");
 		printf ("List of peers returned is: %s\n", listOfPeers);
 		strncat(listOfPeers, ":", 1);
-		selectedPeer = selectPeer(listOfPeers);
+		selectedPeer = selectPeer(listOfPeers, override);
 
 		if (obtainFile(selectedPeer, fileName) < 0)
 		{
@@ -958,80 +969,124 @@ int registerCall(char *fileName)
 
 
 
-int selectOption(int option, char *overrideKey)
+int selectOption(int option, int seqRuns)
 {
 	
 	char fileName[50];
 	char value[1000];
 	char *fixedFileName;
 	char *fixedValue;
-
+	int i;
 
 	switch(option)
 	{
 	   case '1' :  /* REGISTER OPTION */
 	
-		printf("Register a new file\n" );
-		printf("Type in the file you want to register: \n");
+		globalOpt = 2;
+		showPromptMessage();
+		
+		//printf("Register a new file\n" );
+		//printf("Type in the file you want to register: \n");
 
-		if (testingMode)
+		/*if (testingMode)
 		{
 			fixedFileName = overrideKey;
 			fixedValue = "test";
 		}
 
 		else 
+		{*/
+
+
+
+
+
+		//Ask for the new key and save it
+
+		/*In order to get rid of that annoying '\n' escape char*/
+		
+		//printf("Now type the value for that key: \n");
+
+		//Ask for value and save it
+		/*if(fgets (value, 1000, stdin) == NULL ) 
+		{
+			perror("Error when saving the value");	
+			return -1;
+		}*/
+		/*In order to get rid of that annoying '\n' escape char*/
+		//fixedValue = strtok(value, "\n"); 
+	
+		//}
+
+
+
+
+		if (testingMode)
+		{
+
+			for (i = 1; i <= seqRuns; i++)
+			{
+				char testFileName[100];
+				char testAux[6];
+				char *finalAux;
+				sprintf(testFileName, "test%i", i);
+				//strncpy(testFileName, "test", 4);
+				//strncat(testFileName, testAux, sizeof(i)); 
+				printf ("Registering file %s...\n", testFileName);
+				printf ("Execution run number %i\n", i);
+				if (registerCall(testFileName) < 0)
+				{
+					printf("*Error: File %s could not be registered into the server\n", testFileName);
+					return -1;
+				}
+				else
+				{
+					printf("File %s registered sucessfully\n", testFileName);
+				}
+			}
+
+
+		}
+
+		else
 		{
 			if(fgets (fileName, 50, stdin) == NULL ) 
 			{
 				perror("Error when saving the file name");	
 				return -1;
 			}
-			//Ask for the new key and save it
-
-			/*In order to get rid of that annoying '\n' escape char*/
 			fixedFileName = strtok(fileName, "\n"); 
-			//printf("Now type the value for that key: \n");
 
-			//Ask for value and save it
-			/*if(fgets (value, 1000, stdin) == NULL ) 
+			printf ("Registering file %s...\n", fixedFileName);
+
+			if (registerCall(fixedFileName) < 0)
 			{
-				perror("Error when saving the value");	
+				printf("*Error: Key %s could not be registered into the server\n", fixedFileName);
 				return -1;
-			}*/
-			/*In order to get rid of that annoying '\n' escape char*/
-			//fixedValue = strtok(value, "\n"); 
-	
+			}
+			else
+			{
+				printf("File %s registered sucessfully\n", fixedFileName);
+			}
+
 		}
 		
 
-
-		printf ("Registering file %s...\n", fixedFileName);
-
-		if (registerCall(fixedFileName) < 0)
-		{
-			printf("*Error: Key %s could not be registered into the server\n", fixedFileName);
-			return -1;
-		}
-		else
-		{
-			printf("File %s registered sucessfully\n", fixedFileName);
-		}
-
+		
 		break;
 
 	   case '2' : /* SEARCH OPTION */
 
 		globalOpt = 3;
-		//showPromptMessage(globalOpt);
+		showPromptMessage();
 
-		printf("Search for a file\n" );
+		//printf("Search for a file\n" );
 		//globalOpt = 2;
-		printf("Type in the file you want to search: \n");
+		//printf("Type in the file you want to search: \n");
 
 		if (testingMode)
 		{
-			fixedFileName = overrideKey;	
+			//fixedFileName = overrideKey;	
 		}
 		else
 		{
@@ -1046,11 +1101,29 @@ int selectOption(int option, char *overrideKey)
 	
 		}
 
-		if (searchCall(fixedFileName) < 0)
+		if (testingMode)
 		{
-			printf("*Error when searching for file %s\n", fixedFileName);
-			return -1;
+			for (i = 0; i <= seqRuns; i++)
+			{
+				printf("*Execution run number %i\n", i);
+				if (searchCall(fixedFileName, 1) < 0)
+				{
+					printf("*Error when searching for file %s\n", fixedFileName);
+					//return -1;
+				}
+			}
+	
+
 		}
+		else
+		{
+			if (searchCall(fixedFileName, 0) < 0)
+			{
+				printf("*Error when searching for file %s\n", fixedFileName);
+				//return -1;
+			}
+		}
+
 
 		break;
 
@@ -1254,6 +1327,8 @@ void *connection_handler(void *socket_desc)
     		return (void *) -1;
 
 	}
+
+	showPromptMessage();
 }
 
 
@@ -1292,22 +1367,6 @@ void *server_connection_handler(void *socket_desc)
 		}
 
 		header = strtok(requestReceived, " ");
-		
-
-		/* TODO: TO remove */
-		/*strncpy(header, requestReceived, 3);
-		strncpy(key, &requestReceived[4], 20);
-	
-		if (strlen(key) < 24)
-		{
-			finalKey = strtok(key, " ");
-		}
-		else
-		{
-			finalKey = key;
-		}*/
-
-		// Incoming header can be PUT, GET or DEL
 
 
 		/* Put call */
@@ -1432,6 +1491,8 @@ void *server_connection_handler(void *socket_desc)
 
 		free(serverReply);
 		free(listOfPeers);
+		/*prompt*/
+		showPromptMessage();
 	}
 }
 
@@ -1514,6 +1575,8 @@ void *initIndexServerConnection(void *data)
 	return (void *) 0;
 }
 
+
+
 int main (int argc, char *argv[])
 {
 
@@ -1523,15 +1586,29 @@ int main (int argc, char *argv[])
 	globalOpt = 1;
 	clock_t begin, end;
 	double time_spent;
+	int seqRuns = 0;
 
-	if (argc < 2  || argc > 3)
+	if (argc != 2  && argc != 4)
 	{
-		printf("Usage: %s SERVER_PORT [-t]\n", argv[0]);
+		printf("Usage: %s SERVER_PORT [-t SEQ_RUNS]\n", argv[0]);
 		return 0;
 	}
 	
 	serverPort = atoi(argv[1]); /*TODO: Check conversion */
 
+	if (argc == 4)
+	{
+		if (strcmp(argv[2], "-t") == 0)
+		{
+			testingMode = 1;
+			seqRuns = atoi(argv[3]);
+		}
+		else
+		{
+			printf("Usage: %s SERVER_PORT [-t SEQ_RUNS]\n", argv[0]);
+			return 0;
+		}
+	}
 
 	pthread_t new_sniffer_thread;
  
@@ -1549,14 +1626,22 @@ int main (int argc, char *argv[])
 
 	while(1)
 	{
-		//globalOpt = 1;
+		/*prompt*/
+		globalOpt = 1;
+		if (testingMode)
+		{
+			printf ("\n\t************************\n");
+			printf ("\t***** TESTING MODE *****\n");
+			printf ("\t************************\n\n");
+		}
+		showPromptMessage();
 
-		printf ("Peer initialized. Available options:\n");
+		/*printf ("Peer initialized. Available options:\n");
 		printf("\t[1] - Register a file\n");
 		printf("\t[2] - Search for a file\n");
 		printf("\t[3] - [Debug] Show peer DHT contents\n");
 	
-		printf ("\n**SELECT OPTION NUMBER:");
+		printf ("\n**SELECT OPTION NUMBER:");*/
 		
 
 		fgets(auxOption, sizeof(auxOption), stdin);
@@ -1574,7 +1659,7 @@ int main (int argc, char *argv[])
 		}
 		else
 		{*/
-			selectOption(option, NULL);
+			selectOption(option, seqRuns);
 		//}
 
 		
