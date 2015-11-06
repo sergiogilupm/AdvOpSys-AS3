@@ -1,7 +1,7 @@
 /*
 * File: server.c
 * Author: Sergio Gil Luque
-* Version: 1.4
+* Version: 1.5
 * Date: 11-04-15
 */
 
@@ -19,7 +19,6 @@
 #define SERVER_PORT 5000
 
 char *ip;
-
 
 
 typedef struct peerStruct {
@@ -147,7 +146,7 @@ int getIndex (char *fileName)
         unsigned long hash = 5381;
         int c;
 
-        while (c = *fileName++)
+        while ((c = *fileName++))
 	{
             hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
 	}
@@ -198,6 +197,7 @@ int putCall (char *fileName, char *port, int index)
 	}
 }
 
+
 int registerCall (char *fileName, char *port, int DHT_index)
 {
 
@@ -223,10 +223,20 @@ int registerCall (char *fileName, char *port, int DHT_index)
 	}
 
 	/* Performing put calls to the peers including replicas */
-	/* TODO: Check for results. How many peers have to fail in order to consider the call a fail? */
-	putCall(fileName, port, DHT_index);
-	//putCall(fileName, port, replicaPrev);
-	//putCall(fileName, port, replicaNext);
+
+	// If there is only one or two peers we don't replicate the keys since the amount of peers is too low
+	if (NUM_PEERS == 1 || NUM_PEERS == 2)
+	{
+		putCall(fileName, port, DHT_index);
+	}
+
+	// For number of peers equal or higer than 3, then 2 replicas will be stored in different peers
+	else
+	{
+		putCall(fileName, port, DHT_index);
+		putCall(fileName, port, replicaPrev);
+		putCall(fileName, port, replicaNext);
+	}
 
 	return 0;
 }
@@ -277,7 +287,6 @@ char* searchCall (char *fileName, int DHT_index)
 	char* finalRes;
 	int replicaPrev = -1;
 	int replicaNext = -1;
-	int i = 0;
 	char *mainRes;
 	char *firstReplicaRes;
 	char *secondReplicaRes;
@@ -301,37 +310,44 @@ char* searchCall (char *fileName, int DHT_index)
 	}
 
 	/* Performing put calls to the peers including replicas */
-	/* TODO: Check for results. How many peers have to fail in order to consider the call a fail? */
-	
+
 	mainRes = getCall(fileName, DHT_index);
-	/*if (strcmp(mainRes,"ERR") == 0) 
+
+	if (NUM_PEERS == 1 || NUM_PEERS == 2)
 	{
-		firstReplicaRes = getCall(fileName, replicaPrev);
-		if (strcmp(firstReplicaRes,"ERR") == 0) 
+		finalRes = mainRes;
+	}
+
+	// If number of total peers is equal or higher than three, check replicas in case the key is not found
+	else
+	{
+		if (strcmp(mainRes,"ERR") == 0) 
 		{
-			secondReplicaRes = getCall(fileName, replicaNext);
-			if (strcmp(secondReplicaRes,"ERR") == 0) 
+			firstReplicaRes = getCall(fileName, replicaPrev);
+			if (strcmp(firstReplicaRes,"ERR") == 0) 
 			{
-				finalRes = "ERR";
+				secondReplicaRes = getCall(fileName, replicaNext);
+				if (strcmp(secondReplicaRes,"ERR") == 0) 
+				{
+					finalRes = "ERR";
+				}
+				else
+				{
+					finalRes = secondReplicaRes;
+				}
 			}
 			else
 			{
-				finalRes = secondReplicaRes;
+				finalRes = firstReplicaRes;
 			}
 		}
 		else
 		{
-			finalRes = firstReplicaRes;
+			finalRes = mainRes;
 		}
 	}
-	else
-	{
-		finalRes = mainRes;
-	}*/
-	
 
-	/* TODO */
-	return mainRes;
+	return finalRes;
 }
 
 
@@ -483,7 +499,7 @@ void *incoming_connections_handler (void* data)
     }
      
     //Listen
-    listen(IN_socket_desc , 0); // The server can handle 1000 simulteaneous connections
+    listen(IN_socket_desc , 1000); // The server can handle 1000 simulteaneous connections 
      
     //Accept an incoming connection
     printf("\t+Waiting for incoming connections in port %i...\n", SERVER_PORT);
@@ -566,8 +582,8 @@ int initDistHashTable(char *configFilePath)
 	
 		do
 		{
-			fgets (line, sizeof(line), fp); /*TODO: Size or length? */
-			printf ("Read: %s", line); /* TODO: Check line is int and not something else */
+			fgets (line, sizeof(line), fp); 
+			printf ("Read: %s", line); 
 
 			socket = connectToPeer(atoi(line));
 
@@ -598,7 +614,7 @@ int initDistHashTable(char *configFilePath)
 
 int main(int argc , char *argv[])
 {
-	int res = 0;
+
 	char *fileName;
 
 	if (argc != 2)
