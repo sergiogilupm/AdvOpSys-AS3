@@ -15,7 +15,7 @@
 
 #include "uthash.h" // For Hashtable implementation
 
-#define NUM_PEERS 1
+#define NUM_PEERS 8
 #define SERVER_PORT 5000
 
 char *ip;
@@ -73,7 +73,7 @@ int getPeerSock (int key)
 /* Insert new key in hash table  */
 int insertPeerSock (int key, int peerSock)
 {
-	printf("Registering key %i with value %i\n", key, peerSock);
+	//printf("Registering key %i with value %i\n", key, peerSock);
 
 	struct peerStruct *newValue = malloc (sizeof (struct peerStruct));
 	newValue -> key = key;
@@ -146,14 +146,20 @@ int getIndex (char *fileName)
         unsigned long hash = 5381;
         int c;
 
-        while ((c = *fileName++))
+	if (strcmp(fileName,"")==0) 
 	{
-            hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
+		return 0;
 	}
+	else
+	{
+		while ((c = *fileName++))
+		{
+		    hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
+		}
 
 
-        return hash % NUM_PEERS;
-
+		return hash % NUM_PEERS;
+	}
 }
 
 int putCall (char *fileName, char *port, int index)
@@ -278,7 +284,8 @@ char* getCall (char *fileName,  int index)
 	{
 		res = "ERR";
 	}
-
+	free (request);
+	free (serverReply);
 	return res;
 }
 
@@ -376,7 +383,7 @@ void *connection_handler(void *socket_desc)
 		return (void *) -1;
 	}
 	
-	//printf("Request is: %s\n", requestReceived);
+	printf("Request is: %s\n", requestReceived);
 	header = strtok(requestReceived, " ");
 
 
@@ -385,6 +392,22 @@ void *connection_handler(void *socket_desc)
 	{
 		firstArgv = strtok(NULL, " ");  // File to register
 		secondArgv = strtok(NULL, " "); // Peer port
+	
+		if (firstArgv == NULL || secondArgv == NULL)
+		{
+			printf ("*Error: Bad request\n");
+
+			strncpy("ERR ", serverReply, 4);
+			write(sock, serverReply, 1024);
+	
+	    		//Free the socket pointer
+	    		free(socket_desc);
+			free (requestReceived);
+			free (serverReply);
+
+	    		return (void *) -1;
+		}
+
 		DHT_index = getIndex(firstArgv);  // Get hash from file name
 		printf("Register call: %s, %s, index %i\n", firstArgv, secondArgv, DHT_index);
 		
@@ -418,7 +441,27 @@ void *connection_handler(void *socket_desc)
 	else if (strcmp(header,"SEARCH") == 0) 
 	{
 		firstArgv = strtok (NULL, " "); //File to search
+
+		if (firstArgv == NULL)
+		{
+			printf ("*Error: Bad request\n");
+
+			strncpy("ERR ", serverReply, 4);
+			bufferPointer = 4;
+			for (i = bufferPointer; i < 1024; i++)
+			{
+				strncat(serverReply, " ", 1);
+			}
+			write(sock, serverReply, 1024);
+	
+	    		//Free the socket pointer
+			close (sock);
+
+	    		return (void *) -1;
+		}
+
 		DHT_index = getIndex(firstArgv); //Get hash from file name
+		printf("Search call: %s, index %i\n", firstArgv,  DHT_index);
 
 		res = searchCall(firstArgv, DHT_index); 
 
@@ -431,7 +474,11 @@ void *connection_handler(void *socket_desc)
 			{
 				strncat(serverReply, " ", 1);
 			}
-			
+			write(sock, serverReply, 1024);
+			//Free the socket pointer
+			close (sock);
+
+	    		return (void *) -1;
 		}
 		else
 		{
@@ -455,16 +502,25 @@ void *connection_handler(void *socket_desc)
 		printf ("*Error: Bad request\n");
 
 		strncpy("ERR ", serverReply, 4);
+		bufferPointer = 4;
+		for (i = bufferPointer; i < 1024; i++)
+		{
+			strncat(serverReply, " ", 1);
+		}
 		write(sock, serverReply, 1024);
+
 	
     		//Free the socket pointer
-    		free(socket_desc);
-     
+		close (sock);
+
     		return (void *) -1;
 	}
 
 	close (sock);
-	free(socket_desc);
+	/*free (requestReceived);
+	free (serverReply);
+	free(socket_desc);*/
+	//pthread_exit((void *) 0);
 	return (void *) 0;
 }
 
@@ -499,7 +555,7 @@ void *incoming_connections_handler (void* data)
     }
      
     //Listen
-    listen(IN_socket_desc , 1000); // The server can handle 1000 simulteaneous connections 
+    listen(IN_socket_desc , 0); // The server can handle 1000 simulteaneous connections 
      
     //Accept an incoming connection
     printf("\t+Waiting for incoming connections in port %i...\n", SERVER_PORT);

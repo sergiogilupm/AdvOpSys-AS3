@@ -1,8 +1,8 @@
 /*
 * File: peer.c
 * Author: Sergio Gil Luque
-* Version: 1.0
-* Date: 10-28-15
+* Version: 1.5
+* Date: 11-03-15
 */
 
 #include<stdlib.h>
@@ -33,9 +33,12 @@ int connected = 1;
 int serverPort = 0;
 char *peerID;
 int testingMode = 0;
-int seqRuns = 1;
+int initialized = 0;
 int peerPort = 0;
 int globalOpt = 1;
+int seqRuns = 1;
+double elapsed = 0;
+int opType = 0;
 
 
 
@@ -92,7 +95,7 @@ char* searchFileInDHT (char *fileName)
 
 	if (s == NULL)
 	{
-		printf ("ERROR: FILE NOT FOUND");
+		//printf ("ERROR: FILE NOT FOUND");
 		strncpy(reply, "ERR", 3);
 	}
 
@@ -104,14 +107,6 @@ char* searchFileInDHT (char *fileName)
 		{
 			strncat(reply, ":", 1);	
 			strncat(reply, i->name, sizeof(i->name));
-		
-
-			/*snprintf(valStr, sizeof(i->val) + 1, "%i", i->val);
-			strncat(reply, " ", 1);
-			strncat(reply, i->name, sizeof(i->name));
-			strncat(reply, ":", 1);
-			strncat(reply, valStr, sizeof(valStr) + 1);
-			strncat(reply, " ", 1);*/
 		}
 		strncat(reply, " ", 1);
 		printf("Returning from DHT table: %s\n", reply);
@@ -151,14 +146,12 @@ int addFile (char* newFileName, char *newPort) {
 		aux = malloc(sizeof(struct fileStruct));
     		strcpy(aux->name, newFileName);
     		aux->sub = NULL;
-		//aux->val = 0;
     		HASH_ADD_STR( registeredFiles, name, aux );
 
 		/* Adding peer in second level of hashtable */
 		fileStruct_t *s = malloc(sizeof(*s));
 		strcpy(s->name, newPort);
 		s->sub = NULL;
-		//s->val = peerPort;
 		HASH_ADD_STR(aux->sub, name, s);
 	}
 	else
@@ -176,6 +169,7 @@ int addFile (char* newFileName, char *newPort) {
 
 	return 0;
 }
+
 
 
 void showPromptMessage ()
@@ -204,6 +198,28 @@ void showPromptMessage ()
 			printf("\nOption 3: Search for a file\n");
 			printf(">>Type below the file you want to search\n"); 
 		break;
+
+		case 4 :
+			printf("\n************************************\n");
+			printf("******** PERFORMANCE STATS *********\n");
+			printf("************************************\n\n");
+
+
+
+			printf("+Number of executions: %i\n", seqRuns);
+			printf("+Operation type: ");
+			if (opType == '1')
+			{
+				printf("PUT\n");
+			}
+			else
+			{
+				printf("GET\n");
+			}
+			printf("+Total time used by the CPU: %f seconds\n", elapsed);
+			printf("+Average time per single call: %f seconds\n", elapsed / seqRuns);
+			printf("\n************************************\n\n");
+			printf("Please wait. The peer is restarting...\n");
 
 		default :
 			printf("\n*Error: Bad prompt code\n"); 
@@ -273,8 +289,6 @@ int obtainFile (int port, char* fileName)
 		return -1;
 	}
 
-	//strncpy(bufferAux,buffer,bytes_read - 1);
-
 	FILE *fp;
 	fp=fopen(destination, "w");
 
@@ -295,8 +309,8 @@ int obtainFile (int port, char* fileName)
 		}
 
 		printf("\nFile %s sucessfully downloaded\n", fileName); 
-		//printf("VVVV FILE CONTENT (FIRST 256 BYTES) VVVV\n");
-		//printf("%s\n\n", buffer);
+		printf("VVVV FILE CONTENT (FIRST 256 BYTES) VVVV\n");
+		printf("%s\n\n", buffer);
 		fclose (fp);
 	}
 	else 
@@ -310,175 +324,6 @@ int obtainFile (int port, char* fileName)
 	return 0;
 }
 
-
-
-/*int initHashTable()
-{
-
-}*/
-
-
-/*void *index_server_handler (void *socket_desc)  
-{
-	int sock = *(int*)socket_desc;
-	char *requestReceived = malloc(1024 * sizeof(char));
-	char *header = malloc(1024 * sizeof(char));
-	char *key = malloc(1024 * sizeof(char));
-	char *message = malloc (1024 * sizeof(char));
-
-	char *serverReply = malloc (1024 * sizeof(char));
-	     
-	read (sock , requestReceived , 1024);
-	printf ("+A request has been received: %s\n", requestReceived);
-
-	strncpy(header, requestReceived, 4);
-	strncpy(key, &requestReceived[4], 20);
-
-
-	//The only call that the peer can recieve is an obtain ("OBT") call. Otherwise error
-
-	if (strcmp(header,"INIT")==0) 
-	{	
-		printf("+Obtain value from key %s\n", key);
-		
-		message = getValue(key);
-
-		if (message == NULL)
-		{
-			printf("*Error: Key %s not found\n", key);
-			strncpy(serverReply, "ERR ", 4);
-		}
-		else 
-		{
-			strncpy(serverReply, "OK  ", 4);
-			strncat(serverReply, "                    ", 20);
-			strncat(serverReply, message, strlen(message)); 
-		}
-
-		write(sock, serverReply, strlen(serverReply)); 
-	}
-
-	else
-	{
-		printf("*Error: Bad request\n");
-		strncpy("ERR ", serverReply, 4);
-		//strncpy("BAD_REQUEST ", &serverReply[24], 12);
-		write(sock, serverReply, sizeof(serverReply));
-	}
-
-    return (void *) 0;
-}*/
-
-/*int indexServerConnection()
-{
-
-    printf ("\t+Initializing index server connection...\n");
-     
-    int IN_socket_desc, IN_new_socket, c, *IN_new_sock;
-    struct sockaddr_in IN_server, client;
-     
-    //Create socket
-    IN_socket_desc = socket(AF_INET, SOCK_STREAM, 0);
-
-    if (IN_socket_desc == -1)
-    {
-        perror("*Could not create socket");
-	return -1;
-    }
-     
-    //Prepare the sockaddr_in structure
-    IN_server.sin_family = AF_INET;
-    IN_server.sin_addr.s_addr = INADDR_ANY;
-    IN_server.sin_port = htons( SERVER_PORT );
-     
-    //Bind
-    if( bind(IN_socket_desc,(struct sockaddr *) &IN_server , sizeof(IN_server)) < 0)
-    {
-        perror("*Bind failed");
-        return -1;
-    }
-     
-    //Listen
-    listen(IN_socket_desc , 1); // The peer can handle 1000 simulteaneous connections
-     
-    //Accept an incoming connection
-    printf("\t+Waiting for index server to initialize\n");
-    c = sizeof(struct sockaddr_in);
-	
-    //while( (IN_new_socket = accept(IN_socket_desc, (struct sockaddr *)&client, (socklen_t*)&c)) )
-    if (IN_new_socket = accept(IN_socket_desc, (struct sockaddr *)&client, (socklen_t*)&c))
-    {
-        printf("+Connecting to index server\n");
-         
-        pthread_t sniffer_thread;
-        IN_new_sock = malloc(1);
-        *IN_new_sock = IN_new_socket;
-         
-        if(pthread_create (&sniffer_thread , NULL ,  index_server_handler , (void*) IN_new_sock) < 0)
-        {
-            perror("*Could not create thread");
-            return -1;
-        }
-         
-        //Now join the thread , so that we dont terminate before the thread
-        //pthread_join( sniffer_thread , NULL);
-    }
-     
-    if (IN_new_socket<0)
-    {
-        perror("*Accept failed");
-        return -1;
-    }
-     
-    return 0;
-}*/
-
-/*int initListener()
-{
-
-}*/
-
-
-/*int putCall()
-{
-
-	char *request = malloc(1024 * sizeof(char));
-	char *serverReply = malloc(1024 * sizeof(char));
-	int serverIndex = 0;
-	int sock = 0;
-	int i;
-	char *key;
-	char auxPort[5];
-
-
-	//sprintf(auxPort, "%d", port);
-
-	
-	strncpy(request, "PUT ", 4);
-	strncat(request, key, strlen(key));
-	for (i = 4 + strlen(key); i < 24; i++)
-	{
-		strncat(request, " ", 1);
-	}
-	strncat(request, auxPort, strlen(auxPort));
-
-	serverIndex = getServerFromHash(key);
-	printf("Sending request to server %i: %s\n", serverIndex, request);
-	sock = 0; //serverSockets[serverIndex];
-
-	write(sock, request, 1024);
-	read (sock , serverReply , 1024);
-	
-	if (strcmp(serverReply,"OK  ")==0) 
-	{
-		return 0;
-	}
-	else
-	{
-		return -1;
-	}
-
-}*/
 
 int selectPeer(char *listOfPeers, int override)
 {
@@ -500,10 +345,6 @@ int selectPeer(char *listOfPeers, int override)
 		currentPeer = strtok(NULL, ":");
 		count ++;
 	}
-	
-	/*currentPeer = strtok(NULL, " ");
-	peersArray[count] = atoi(currentPeer);
-	printf("\t[%i] - Peer at port %s\n", count, currentPeer);*/
 
 	printf ("\n**SELECT OPTION NUMBER:");
 		
@@ -546,7 +387,6 @@ int searchCall(char *fileName, int override)
 		printf("Could not create socket");
 		return -1;
 	}
-	//puts("Socket created");
 
 	server.sin_addr.s_addr = inet_addr("127.0.0.1");
 	server.sin_family = AF_INET;
@@ -561,7 +401,6 @@ int searchCall(char *fileName, int override)
 
     	printf("Connected to port %i\n", SERVER_PORT);
 
-    	//write(sock, request, strlen(request));
 	sprintf(myPort, "%d", PEER_PORT);
 
 	
@@ -569,7 +408,6 @@ int searchCall(char *fileName, int override)
 	strncat(request, " ", 1);
 	strncat(request, fileName, strlen(fileName));
 
-	//strncat(request, myPort ,strlen(myPort));
 	bufferPointer = 6 + 1 + strlen(fileName);
 
 	for (i = bufferPointer; i < 1024; i++)
@@ -608,8 +446,6 @@ int searchCall(char *fileName, int override)
 		return -1;
 	}
 
-	/* Prepare SEARCH FILE_NAME and send */
-	/* Select peer and obtain file */
 	return 0;
 }
 
@@ -634,7 +470,6 @@ int registerCall(char *fileName)
 		printf("Could not create socket");
 		return -1;
 	}
-	//puts("Socket created");
 
 	server.sin_addr.s_addr = inet_addr("127.0.0.1");
 	server.sin_family = AF_INET;
@@ -649,7 +484,6 @@ int registerCall(char *fileName)
 
     	printf("Connected to port %i\n", SERVER_PORT);
 
-    	//write(sock, request, strlen(request));
 	sprintf(myPort, "%d", PEER_PORT);
 
 	
@@ -698,56 +532,19 @@ int selectOption(int option, int seqRuns)
 	{
 	   case '1' :  /* REGISTER OPTION */
 	
-		globalOpt = 2;
-		showPromptMessage();
-		
-		//printf("Register a new file\n" );
-		//printf("Type in the file you want to register: \n");
-
-		/*if (testingMode)
+		if (!testingMode)
 		{
-			fixedFileName = overrideKey;
-			fixedValue = "test";
+			globalOpt = 2;
+			showPromptMessage();
 		}
-
-		else 
-		{*/
-
-
-
-
-
-		//Ask for the new key and save it
-
-		/*In order to get rid of that annoying '\n' escape char*/
-		
-		//printf("Now type the value for that key: \n");
-
-		//Ask for value and save it
-		/*if(fgets (value, 1000, stdin) == NULL ) 
-		{
-			perror("Error when saving the value");	
-			return -1;
-		}*/
-		/*In order to get rid of that annoying '\n' escape char*/
-		//fixedValue = strtok(value, "\n"); 
-	
-		//}
-
-
 
 
 		if (testingMode)
 		{
-
+			//globalOpt = 4;
 			for (i = 1; i <= seqRuns; i++)
 			{
-				/*char testFileName[100];
-				char testAux[6];
-				char *finalAux;*/
 				sprintf(testFileName, "test%i_%i", PEER_ID, i);
-				//strncpy(testFileName, "test", 4);
-				//strncat(testFileName, testAux, sizeof(i)); 
 				printf ("Registering file %s...\n", testFileName);
 				printf ("Execution run number %i\n", i);
 				if (registerCall(testFileName) < 0)
@@ -793,33 +590,24 @@ int selectOption(int option, int seqRuns)
 
 	   case '2' : /* SEARCH OPTION */
 
+
 		globalOpt = 3;
 		showPromptMessage();
+		//Ask for the new key and save it
+		if(fgets (fileName, 50, stdin) == NULL ) 
+		{
+			perror("Error when saving the file name");	
+			return -1;
+		}
+		/*In order to get rid of that annoying '\n' escape char*/
+		fixedFileName = strtok(fileName, "\n"); 
 
-		//printf("Search for a file\n" );
-		//globalOpt = 2;
-		//printf("Type in the file you want to search: \n");
+		
 
 		if (testingMode)
 		{
-			//fixedFileName = overrideKey;	
-		}
-		else
-		{
-			//Ask for the new key and save it
-			if(fgets (fileName, 50, stdin) == NULL ) 
-			{
-				perror("Error when saving the file name");	
-				return -1;
-			}
-			/*In order to get rid of that annoying '\n' escape char*/
-			fixedFileName = strtok(fileName, "\n"); 
-	
-		}
-
-		if (testingMode)
-		{
-			for (i = 0; i <= seqRuns; i++)
+			globalOpt = 4;
+			for (i = 1; i <= seqRuns; i++)
 			{
 				if (PEER_ID == 8)
 				{
@@ -830,7 +618,7 @@ int selectOption(int option, int seqRuns)
 					sprintf(testFileName, "test%i_%i", PEER_ID + 1, i);
 				}
 				
-				printf("*Execution run number %i\n", i);
+				printf("*Execution run number %i with file %s\n", i, testFileName);
 				if (searchCall(testFileName, 1) < 0)
 				{
 					printf("*Error when searching for file %s\n", testFileName);
@@ -851,48 +639,6 @@ int selectOption(int option, int seqRuns)
 
 
 		break;
-
-
-	   /*case '3' :   
-	
-
-		printf("Delete a key\n" );
-		printf("Type in the key you want to delete: \n");
-
-		if (testingMode)
-		{
-			fixedKey = overrideKey;
-		}
-		else
-		{
-			//Ask for the new key and save it
-			if(fgets (key, 20, stdin) == NULL ) 
-			{
-				perror("Error when saving the key");	
-				return -1;
-			}
-			
-			fixedKey = strtok(key, "\n"); 
-		}
-		
-		
-		if (getValue(fixedKey) == NULL)
-		{
-			printf("*Error: You can not delete keys from other peers\n");
-			return -1;
-		}
-		if (deleteCall(fixedKey) < 0)
-		{
-			printf("*Error: Key %s could not be deleted\n", fixedKey);
-			return -1;
-		}
-		else
-		{
-			deleteKey(fixedKey); 
-			printf("The key %s was sucessfully deleted\n", fixedKey);
-		}
-
-		break;*/
 
 	   case '3' :
 		printf("The content of the DHT is shown below. Blank means the DHT is empty for this peer\n");
@@ -929,7 +675,6 @@ int sendFile (int sock, char* fileName)
 		size = ftell(fp); // get current file pointer
 		fseek(fp, 0, SEEK_SET); // seek back to beginning of file
 		printf("Size: %lu\n", size);
-		//sleep(20);
 		while ( (bytes_read = fread (buffer, 1, sizeof (buffer), fp)) > 0)
 		{
 			progress = (singleBuffSize * count / (float)size) * 100;
@@ -938,7 +683,6 @@ int sendFile (int sock, char* fileName)
 
 			if (count % 1000 == 0)  //Print after 100 blocks of 256 bytes have been sent. Otherwise you print a lot!
 			{
-				//clear();
 				printf("\rSending file %s... %.4f%%\n", fileName, progress);
 			}
 			count++;
@@ -995,32 +739,6 @@ void *connection_handler(void *socket_desc)
 		{
 			printf("+File %s sent successfully\n", firstArgv);
 		}
-
-		
-		/*strncpy(serverReply, "OK", 2);
-		bufferPointer = 2;
-
-		for (i = bufferPointer; i < 1024; i++)
-		{
-			strncat(serverReply, " ", 1);
-		}
-
-		write(sock, serverReply, 1024);*/
-		
-		/*strncpy(message, &requestReceived[24], 1000);
-
-		if (insertValue(finalKey, message) < 0)
-		{
-			printf("*Error registering new key");
-			strncpy(serverReply, "ERR ", 4);
-			write(sock, serverReply, 1024);
-		}
-		else
-		{
-			printf("New key %s has been registered\n", finalKey);
-			strncpy(serverReply, "OK  ", 4);
-			write(sock, serverReply, 1024);
-		}*/
 	}
 
 	else 
@@ -1046,7 +764,20 @@ void *connection_handler(void *socket_desc)
 
 	}
 
-	showPromptMessage();
+	if (!testingMode)
+	{
+		showPromptMessage();
+	}
+	else
+	{
+		if (initialized)
+		{
+			globalOpt = 4;
+			showPromptMessage();
+		}
+		globalOpt = 1;
+		showPromptMessage();
+	}
 	return (void *) 0;
 }
 
@@ -1076,6 +807,8 @@ void *server_connection_handler(void *socket_desc)
 	    	if (read (sock, requestReceived , 1024) == 0)
 		{
 			printf("*Error: Connection lost\n");
+			free(serverReply);
+			free(listOfPeers);
 			return (void *) -1;
 		}
 
@@ -1102,20 +835,6 @@ void *server_connection_handler(void *socket_desc)
 
 			write(sock, serverReply, 1024);
 			
-			/*strncpy(message, &requestReceived[24], 1000);
-
-			if (insertValue(finalKey, message) < 0)
-			{
-				printf("*Error registering new key");
-				strncpy(serverReply, "ERR ", 4);
-				write(sock, serverReply, 1024);
-			}
-			else
-			{
-				printf("New key %s has been registered\n", finalKey);
-				strncpy(serverReply, "OK  ", 4);
-				write(sock, serverReply, 1024);
-			}*/
 		}
 
 		/* Get call */
@@ -1127,7 +846,7 @@ void *server_connection_handler(void *socket_desc)
 			printf("get branch. getting peers from file %s\n", firstArgv);
 			listOfPeers = searchFileInDHT(firstArgv);
 
-			if (strcmp(listOfPeers, "ERR") == 0)
+			if ( (strcmp(listOfPeers, "ERR") == 0) || listOfPeers == NULL)
 			{
 				printf("*Error: File not found\n");
 				strncpy(serverReply, "ERR", 3);
@@ -1162,23 +881,6 @@ void *server_connection_handler(void *socket_desc)
 			write(sock, serverReply, 1024);
 
 		}
-	
-		/* Delete call TODO REMOVE THIS CALL*/
-		/*else if (strcmp(header,"DEL")==0)
-		{
-			if (deleteKey(finalKey) < 0)
-			{
-				printf("*Error deleting key %s\n", finalKey);
-				strncpy(serverReply, "ERR ", 4);
-				write(sock, serverReply, 1024);
-			}
-			else
-			{
-				printf("Key %s has been deleted\n", finalKey);
-				strncpy(serverReply,"OK  ", 4);
-				write(sock, serverReply, 1024);
-			}
-		}*/
 
 		else 
 		{
@@ -1198,6 +900,7 @@ void *server_connection_handler(void *socket_desc)
 		
 	    		//Free the socket pointer
 	    		free(socket_desc);
+			free(listOfPeers);
 	     
 	    		return (void *) -1;
 		}
@@ -1205,7 +908,20 @@ void *server_connection_handler(void *socket_desc)
 		free(serverReply);
 		free(listOfPeers);
 		/*prompt*/
-		showPromptMessage();
+		if (!testingMode)
+		{
+			showPromptMessage();
+		}
+		else
+		{
+			if (initialized)
+			{
+				globalOpt = 4;
+				showPromptMessage();
+			}
+			globalOpt = 1;
+			showPromptMessage();
+		}
 	}
 }
 
@@ -1299,8 +1015,6 @@ int main (int argc, char *argv[])
 	int *a = NULL;
 	globalOpt = 1;
 	struct timespec start, finish;
-	double elapsed;
-	int seqRuns = 0;
 
 	if (argc != 2  && argc != 4)
 	{
@@ -1342,7 +1056,7 @@ int main (int argc, char *argv[])
 	while(1)
 	{
 		/*prompt*/
-		globalOpt = 1;
+		
 		if (testingMode)
 		{
 			printf ("\n\t************************\n");
@@ -1350,6 +1064,7 @@ int main (int argc, char *argv[])
 			printf ("\t************************\n\n");
 		}
 
+		globalOpt = 1;
 		showPromptMessage();
 		
 
@@ -1358,6 +1073,7 @@ int main (int argc, char *argv[])
 
 		if (testingMode)
 		{
+			opType = option;
 			if (option == '3')
 			{
 				printf("Option 3 is not available in testing mode\n");
@@ -1366,13 +1082,10 @@ int main (int argc, char *argv[])
 
 			else
 			{
+				globalOpt = 4;
 				printf("You are about to perform %i sequential calls\n", seqRuns);
-				printf("The test will start in 3\n");
-				sleep(1);
-				printf("2\n");
-				sleep(1);
-				printf("1\n");
-				sleep(1);
+				printf("The test will start in 10 seconds...\n");
+				sleep(10);
 
 				// Starts counting
 				clock_gettime(CLOCK_MONOTONIC, &start);
@@ -1385,6 +1098,8 @@ int main (int argc, char *argv[])
 				elapsed = (finish.tv_sec - start.tv_sec);
 				elapsed += (finish.tv_nsec - start.tv_nsec) / 1000000000.0;
 
+				//showPromptMessage();
+
 				printf("\n************************************\n");
 				printf("******** PERFORMANCE STATS *********\n");
 				printf("************************************\n\n");
@@ -1392,13 +1107,20 @@ int main (int argc, char *argv[])
 
 
 				printf("+Number of executions: %i\n", seqRuns);
+				printf("+Operation type: ");
+				if (option == '1')
+				{
+					printf("PUT\n");
+				}
+				else
+				{
+					printf("GET\n");
+				}
 				printf("+Total time used by the CPU: %f seconds\n", elapsed);
 				printf("+Average time per single call: %f seconds\n", elapsed / seqRuns);
 				printf("\n************************************\n\n");
 				printf("Please wait. The peer is restarting...\n");
 				sleep (3);
-				//printf("Press any key to continue");
-				//getchar();
 			}
 			
 		}
